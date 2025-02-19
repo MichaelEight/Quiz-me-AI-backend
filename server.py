@@ -42,8 +42,19 @@ def api_generate_questions():
     # Return the response
     return jsonify({"quizQuestions": response})
 
+@app.route("/api/checkOpenAnswer", methods=["POST"])
+def api_check_open_answer():
+    open_question = request.json.get("openQuestion") or ""
+    answer = request.json.get("answer") or ""
+
+    # Call the API to check if the answer is considered correct
+
+    # if answer.lower() in open_question.lower():
+    #     return jsonify({"acceptable": True})
+    return jsonify({"acceptable": False})
+
 @app.route("/api/testGPTAPI", methods=["GET"])
-def test_gpt_api():
+def api_test_gpt():
     example_system_prompt = PROMPTS.QUESTION_GENERATOR_INSTRUCTION
     example_developer_prompt = PROMPTS.generate_questions_instruction(1,1)
     example_user_prompt = (
