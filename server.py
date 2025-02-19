@@ -1,9 +1,13 @@
 from flask import Flask, request, jsonify
-import os
+from flask_cors import CORS
 from openai import OpenAI
 from prompts import PROMPTS
+import os
+import json
 
 app = Flask(__name__)
+CORS(app, resources={r"/*": {"origins": "*"}})
+
 OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
 if not OPENAI_API_KEY:
     raise ValueError("OPENAI_API_KEY environment variable not set.")
@@ -19,7 +23,17 @@ def call_api(system_prompt, developer_prompt, user_prompt):
         model="gpt-4o-mini",
         messages=messages
     )
-    return response.choices[0].message.content.strip()
+
+    # ✅ Extract the content from OpenAI response
+    response_text = response.choices[0].message.content.strip()
+
+    # ✅ Convert the text response into a valid JSON object
+    try:
+        response_json = json.loads(response_text)
+        return response_json  # This will return a Python dictionary (not a string)
+    except json.JSONDecodeError:
+        print("❌ Failed to parse OpenAI response as JSON. Returning raw text.")
+        return {"error": "Invalid response format", "raw_response": response_text}
 
 @app.route("/api/generateQuestions", methods=["POST"])
 def api_generate_questions():
@@ -37,11 +51,12 @@ def api_generate_questions():
     user_prompt = base_text
 
     # Call the API
-    response = call_api(system_prompt, developer_prompt, user_prompt)
+    response_json = call_api(system_prompt, developer_prompt, user_prompt)
 
     # Return the response
-    return jsonify({"quizQuestions": response})
+    return jsonify(response_json)
 
+# TODO: Implement
 @app.route("/api/checkOpenAnswer", methods=["POST"])
 def api_check_open_answer():
     open_question = request.json.get("openQuestion") or ""
@@ -56,18 +71,23 @@ def api_check_open_answer():
 @app.route("/api/testGPTAPI", methods=["GET"])
 def api_test_gpt():
     example_system_prompt = PROMPTS.QUESTION_GENERATOR_INSTRUCTION
-    example_developer_prompt = PROMPTS.generate_questions_instruction(1,1)
+    example_developer_prompt = PROMPTS.generate_questions_instruction(
+        closedQuestionsAmount=1,
+        openQuestionsAmount=1
+    )
     example_user_prompt = (
         "This week, we will learn about functions. "
         "We will also learn about loops. "
         "Next week, we will learn about classes."
     )
-    response = call_api(
+
+    response_json = call_api(
         example_system_prompt,
         example_developer_prompt,
         example_user_prompt,
     )
-    return jsonify({"response": response})
+
+    return jsonify(response_json)
 
 if __name__ == '__main__':
     app.run(debug=True, host='0.0.0.0')
