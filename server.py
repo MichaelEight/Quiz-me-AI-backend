@@ -2,8 +2,10 @@ from flask import Flask, request, jsonify
 from flask_cors import CORS
 from openai import OpenAI
 from prompts import PROMPTS
+from decorators import not_implemented_yet
 import os
 import json
+import logging
 
 app = Flask(__name__)
 CORS(app, resources={r"/*": {"origins": "*"}})
@@ -12,6 +14,12 @@ OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
 if not OPENAI_API_KEY:
     raise ValueError("OPENAI_API_KEY environment variable not set.")
 client = OpenAI(api_key=OPENAI_API_KEY)
+
+logging.basicConfig(
+    filename='app.log',
+    level=logging.INFO,
+    format='%(asctime)s - %(levelname)s - %(message)s'
+)
 
 def call_api(system_prompt, developer_prompt, user_prompt):
     messages = [
@@ -42,6 +50,10 @@ def api_generate_questions():
     closed_questions_amount = request.json.get("closedQuestionsAmount") or 0
     open_questions_amount = request.json.get("openQuestionsAmount") or 0
 
+    app.logger.info(f"Received baseText={base_text!r}")
+    app.logger.info(f"Received closedQuestionsAmount={closed_questions_amount!r}")
+    app.logger.info(f"Received openQuestionsAmount={open_questions_amount!r}")
+
     # Generate the prompts for the API
     system_prompt = PROMPTS.QUESTION_GENERATOR_INSTRUCTION
     developer_prompt = PROMPTS.generate_questions_instruction(
@@ -53,11 +65,14 @@ def api_generate_questions():
     # Call the API
     response_json = call_api(system_prompt, developer_prompt, user_prompt)
 
+    app.logger.info(f"Generated reponse={response_json!r}")
+
     # Return the response
     return jsonify(response_json)
 
 # TODO: Implement
 @app.route("/api/checkOpenAnswer", methods=["POST"])
+@not_implemented_yet
 def api_check_open_answer():
     open_question = request.json.get("openQuestion") or ""
     answer = request.json.get("answer") or ""
@@ -88,6 +103,10 @@ def api_test_gpt():
     )
 
     return jsonify(response_json)
+
+@app.route("/api/testAPIConnection", methods=["GET"])
+def api_test_connection():
+    return jsonify("OK")
 
 if __name__ == '__main__':
     app.run(debug=True, host='0.0.0.0', port=5000)
